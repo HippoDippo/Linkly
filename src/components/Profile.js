@@ -15,18 +15,19 @@ export default class Profile extends React.Component {
   componentDidMount() {
     axios.get('/auth/me')
     .then(res => {
-      this.setState({
-        userName: res.data.user_name,
-        userImg: res.data.img
-      });
+      // this.setState({
+      //   userName: res.data.user_name,
+      //   userImg: res.data.img
+      // });
+      console.log(res);
     });
   }
 
   render() {
     return (
       <div className="Profile">
-        <img src={this.state.userimg} alt="Kaycee" />
-        <h1>Hello {this.state.userName}</h1>
+        {/* <img src={this.state.userimg} alt="Kaycee" />
+        <h1>Hello {this.state.userName}</h1> */}
       </div>
     );
   }

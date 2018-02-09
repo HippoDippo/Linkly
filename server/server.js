@@ -1,18 +1,16 @@
 require('dotenv').config();
-const express = require('express'),
-      session = require('express-session'),
-      bodyParser = require('body-parser'),
-      cors = require('cors'),
-      passport = require('passport'),
-      Auth0Strategy = require('passport-auth0'),
-      massive = require('massive');
+const express = require('express');
+const session = require('express-session');
+const bodyParser = require('body-parser');
+const passport = require('passport');
+const Auth0Strategy = require('passport-auth0');
+const massive = require('massive');
 
 const app = express();
-const PORT = process.env.PORT || 3003;
+const PORT = 3005;
 const CONNECTION_STRING = process.env.CONNECTION_STRING;
 
 app.use(bodyParser.json());
-app.use(cors());
 app.use(session({
   secret: process.env.SECRET,
   resave: false,
@@ -21,6 +19,11 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(express.static(__dirname + '/../build'));
+
+massive(CONNECTION_STRING)
+.then(db => {
+  app.set('db', db);
+});
 
 passport.use(new Auth0Strategy({
   domain: process.env.AUTH_DOMAIN,
@@ -31,24 +34,25 @@ passport.use(new Auth0Strategy({
 }, function(accessToken, refreshToken, extraParams, profile, done) {
   const db = app.get('db');
 
+  console.log(profile);
   db.find_user([ profile.user_id ])
   .then(user => {
     if (user[0]) {
-      return done(null,{ id: user[0].id });
+      return done(null, { id: user[0].id });
     } else {
       db.create_user([ profile.displayName, profile.picture, profile.user_id ])
       .then(user => {
         return done(null, { id: user[0].id });
       });
     }
-  });
+  })
 }));
 
 app.get('/auth', passport.authenticate('auth0'));
 
-app.get('/auth.callback', passport.authenticate('auth0', {
+app.get('/auth/callback', passport.authenticate('auth0', {
   successRedirect: 'http://localhost:3000/#/profile',
-  failureRedirect: 'http://localhost:3003/auth'
+  failureRedirect: 'http://localhost:3005/auth'
 }));
 
 passport.serializeUser(function(user, done) {
@@ -56,7 +60,7 @@ passport.serializeUser(function(user, done) {
 });
 
 passport.deserializeUser(function(user, done) {
-  app.get('db').find_session([ user.id ])
+  app.get('db').find_session_user([user.id])
   .then(user => {
     return done(null, user[0]);
   });
@@ -64,7 +68,7 @@ passport.deserializeUser(function(user, done) {
 
 app.get('/auth/me', (req, res, next) => {
   if (!req.user) {
-    return res.status(401).send('Log in required');
+    return res.status(401).send('Log In required');
   } else {
     return res.status(200).send(req.user);
   }
@@ -75,16 +79,51 @@ app.get('/auth/logout', (req, res) => {
   return res.redirect('http://localhost:3000/#/');
 });
 
-// app.get();
-// app.post();
-// app.put();
-// app.delete();
+// app.get('/api/user', (res, res) => {
+//   const db = req.app.get('db');
 
-massive(CONNECTION_STRING)
-.then(db => {
-  app.set('db', db);
+//   db.getUser();
+// });
 
-  app.listen(PORT, () => {
-    console.log(`Listening on port ${PORT}`);
+app.get('/api/posts', (req, res) => {
+  const db = req.app.get('db');
+
+  db.getAllPosts()
+    .then(posts => {
+      res.status(200).send(posts);
+    });
+});
+
+app.get('/api/savedposts', (req, res) => {
+  const db = req.app.get('db');
+
+  db.getAllSavedPosts()
+  .then(savedposts => {
+    res.status(200).send(savedposts);
   });
+});
+
+app.post('/api/posts', (req, res) => {
+  const db = req.app.get('db');
+
+  db.create_post(req.body.userID, req.body.titleText, req.body.introText, req.body.bodyText);
+});
+
+app.post('/api/savedposts', (req, res) => {
+  const db = req.app.get('db');
+
+  db.create_savedpost(req.body.userID, req.body.titleText, req.body.introText, req.body.bodyText);
+});
+
+app.delete('/api/savedposts', (req, res) => {
+  const db = req.app.get('db');
+
+  db.deletePost(req.body.postID)
+  .then(res => {
+    res.status(200).send(res);
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`Listening on port ${PORT}`);
 });
