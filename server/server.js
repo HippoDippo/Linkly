@@ -23,11 +23,11 @@ app.use(passport.session());
 app.use(express.static(__dirname + '/../build'));
 
 passport.use(new Auth0Strategy({
-  domain: '',
-  clientID: '',
-  clientSecret: '',
-  callbackURL: '',
-  scope: ''
+  domain: process.env.AUTH_DOMAIN,
+  clientID: process.env.AUTH_CLIENT_ID,
+  clientSecret: process.env.AUTH_CLIENT_SECRET,
+  callbackURL: process.env.AUTH_CALLBACK,
+  scope: 'openid profile'
 }, function(accessToken, refreshToken, extraParams, profile, done) {
   const db = app.get('db');
 
